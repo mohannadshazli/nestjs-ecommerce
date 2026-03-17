@@ -1,13 +1,17 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  registerDecorator,
+  ValidationArguments,
+  ValidationOptions,
   IsEmail,
   IsNotEmpty,
   IsString,
   Length,
   MinLength,
 } from 'class-validator';
+import { Match } from 'src/common/decorators/match.decorator';
 
-export class CreateUserDto {
+export class RegisterDto {
   @ApiProperty()
   @Length(2, 50)
   @IsString()
@@ -30,4 +34,8 @@ export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @ApiProperty()
+  @Match('password', { message: 'Passwords do not match' })
+  passwordConfirm: string;
 }

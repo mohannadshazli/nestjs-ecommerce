@@ -1,26 +1,47 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { UsersService } from 'src/users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { User, UserDocument } from 'src/users/schema/user.schema';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
+  constructor(
+    private readonly userService: UsersService,
+    private readonly JwtService: JwtService,
+  ) {}
+  async register(registerDto: RegisterDto) {
+    const existing = await this.userService.findByEmail(registerDto.email);
+    if (existing) {
+      throw new ConflictException('Email already exists');
+    }
+
+    const user = await this.userService.createUser(registerDto);
+
+    const accessToken = this.JwtService.signAsync({ id: user._id });
+
+    return accessToken;
   }
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+  async login(loginDto: LoginDto) {
+    const user = await this.userService.findByEmail(loginDto.email);
+    console.log(user);
+    if (!user) {
+      throw new BadRequestException('Email or password is incorrect');
+    }
+    const isPasswordValid = await user.comparePassword(loginDto.password);
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+    if (!isPasswordValid) {
+      throw new BadRequestException('Email or password is incorrect');
+    }
+    const accessToken = this.JwtService.signAsync({ id: user._id });
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+    return accessToken;
   }
 }

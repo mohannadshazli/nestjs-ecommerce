@@ -10,10 +10,12 @@ import { PaymentModule } from 'src/payment/payment.module';
 import { ProductsModule } from 'src/products/products.module';
 import { UsersModule } from 'src/users/users.module';
 import { AppConfigModule } from 'src/common/config/config.module';
+import { DatabaseModule } from 'src/common/database/database.module';
 
 @Module({
   imports: [
     AppConfigModule,
+    DatabaseModule,
     AuthModule,
     BrandsModule,
     CartModule,
