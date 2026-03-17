@@ -40,6 +40,7 @@ export class AuthService {
     if (!isPasswordValid) {
       throw new BadRequestException('Email or password is incorrect');
     }
+
     const accessToken = this.JwtService.signAsync({ id: user._id });
 
     return accessToken;
