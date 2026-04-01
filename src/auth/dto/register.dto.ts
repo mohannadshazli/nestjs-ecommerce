@@ -1,8 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  registerDecorator,
-  ValidationArguments,
-  ValidationOptions,
   IsEmail,
   IsNotEmpty,
   IsString,

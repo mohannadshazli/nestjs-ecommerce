@@ -12,25 +12,38 @@ import { Model } from 'mongoose';
 @Injectable()
 export class UsersService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
-  async create(createUserDto: CreateUserDto) {
-    const existing = await this.findByEmail(createUserDto.email);
+
+  async getUsers() {
+    const users = await this.userModel.find();
+    return users;
+  }
+
+  async createUserByManager(dto: CreateUserDto) {
+    const existing = await this.isExist(dto.email);
     if (existing) {
       throw new ConflictException('Email already exists');
     }
-    const user = await this.userModel.create(createUserDto);
+    const user = await this.userModel.create(dto);
     return user;
   }
 
-  async createUser(data: Partial<User>) {
-    return this.userModel.create(data);
+  async createUserforRegisteration(dto: CreateUserDto) {
+    const existing = await this.isExist(dto.email);
+    if (existing) {
+      throw new ConflictException('Email already exists');
+    }
+    return this.userModel.create(dto);
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
-  }
-
-  async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email }).select('+password').exec();
+  async isExist(email: string): Promise<UserDocument | null> {
+    const existing = await this.userModel
+      .findOne({ email })
+      .select('+password')
+      .exec();
+    if (existing) {
+      return existing;
+    }
+    return null;
   }
 
   update(id: number, updateUserDto: UpdateUserDto) {

@@ -11,6 +11,7 @@ import { ProductsModule } from 'src/products/products.module';
 import { UsersModule } from 'src/users/users.module';
 import { AppConfigModule } from 'src/common/config/config.module';
 import { DatabaseModule } from 'src/common/database/database.module';
+import { UploadModule } from 'src/common/upload/upload.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DatabaseModule } from 'src/common/database/database.module';
     PaymentModule,
     ProductsModule,
     UsersModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [AppService],

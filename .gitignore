@@ -2,6 +2,9 @@
 /dist
 /node_modules
 /build
+/users.http
+/uploads
+/e-commerce erd.png
 
 # Logs
 logs
