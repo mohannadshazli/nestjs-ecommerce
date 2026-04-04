@@ -21,10 +21,10 @@ export class CartService {
   ) {}
 
   async get(user_id: string) {
-    let cart = await this.cartModel
-      .findOne({ user_id })
-      .select('cart_items_ids')
-      .populate('cart_items_ids');
+    let cart = await this.cartModel.findOne({ user_id }).populate({
+      path: 'cart_items_ids',
+      populate: { path: 'product_id' },
+    });
     if (!cart) {
       throw new BadRequestException(
         'You have to add at least one product to the cart',
@@ -33,13 +33,20 @@ export class CartService {
     return cart;
   }
 
-  async create(productId: string, quantity: number = 0, userId: string) {
+  async create(productId: string, quantity: number = 1, userId: string) {
+    if (quantity <= 0) {
+      throw new BadRequestException('Quantity must be at least 1');
+    }
+
+    if (!Types.ObjectId.isValid(productId)) {
+      throw new BadRequestException('Invalid product ID');
+    }
     const cart = await this.getOrCreateCart(userId);
 
     const product = await this.validateProduct(productId, quantity);
 
     const existingItem = await this.cartItemsModel.findOne({
-      cart_id: `${cart._id}`,
+      cart_id: cart._id,
       product_id: productId,
     });
     if (existingItem) {
@@ -78,7 +85,6 @@ export class CartService {
     if (product.stock < quantity) {
       throw new BadRequestException('Not enough stock');
     }
-
     return product;
   }
 
@@ -105,8 +111,8 @@ export class CartService {
     return cartItem;
   }
 
-  async increaseQuantity(cartItemId: string, quantity: number) {
-    let cartItem = await this.cartItemsModel.findById(cartItemId);
+  async increaseQuantity(cartItemId: string) {
+    const cartItem = await this.cartItemsModel.findById(cartItemId);
 
     if (!cartItem) {
       throw new NotFoundException('Cart item not found');
@@ -120,35 +126,116 @@ export class CartService {
       throw new NotFoundException('Product not found');
     }
 
-    if (cartItem.quantity + quantity > product.stock) {
-      throw new BadRequestException('Stock limit exceeded');
+    if (cartItem.quantity + 1 > product.stock) {
+      throw new BadRequestException(
+        `Only ${product.stock} items available in stock`,
+      );
     }
 
-    await this.cartItemsModel.updateOne(
-      { _id: cartItemId },
+    // Atomic update with validation
+    const updated = await this.cartItemsModel.findOneAndUpdate(
+      {
+        _id: cartItemId,
+        quantity: { $lt: product.stock }, // Ensure we don't exceed stock
+      },
       { $inc: { quantity: 1 } },
-    );
-    return this.cartItemsModel.findById(cartItemId);
-  }
-
-  async decreaseQuantity(cartItemId: string, quantity: number) {
-    const cartItem = await this.cartItemsModel.findByIdAndUpdate(
-      cartItemId,
-      { $inc: { quantity: -quantity } },
       { new: true },
     );
-    if (cartItem!.quantity <= 0) {
-      await this.remove(cartItemId);
-      return null;
+
+    if (!updated) {
+      throw new BadRequestException('Could not increase quantity');
     }
-    return cartItem;
+
+    return updated;
+  }
+
+  async decreaseQuantity(cartItemId: string) {
+    const cartItem = await this.cartItemsModel.findById(cartItemId);
+
+    if (!cartItem) {
+      throw new NotFoundException('Cart item not found');
+    }
+
+    // If quantity is 1, remove instead of decreasing
+    if (cartItem.quantity === 1) {
+      await this.remove(cartItemId);
+      return { removed: true, message: 'Item removed from cart' };
+    }
+
+    // Decrease quantity atomically (prevent going below 0)
+    const updated = await this.cartItemsModel.findOneAndUpdate(
+      { _id: cartItemId, quantity: { $gt: 1 } },
+      { $inc: { quantity: -1 } },
+      { new: true },
+    );
+
+    if (!updated) {
+      throw new BadRequestException('Cannot decrease quantity');
+    }
+
+    return { removed: false, cartItem: updated };
   }
 
   async remove(id: string) {
     const cartItem = await this.cartItemsModel.findById(id);
     if (!cartItem) {
-      throw new NotFoundException('Cart item not found');
+      throw new NotFoundException('Item not found in this cart');
     }
-    return null;
+
+    await this.cartModel.findByIdAndUpdate(cartItem.cart_id, {
+      $pull: { cart_items_ids: id },
+    });
+
+    await this.cartItemsModel.findByIdAndDelete(id);
+
+    return { message: 'Item removed successfully' };
+  }
+
+  async getTotalPrice(userId: string) {
+    const cart = await this.cartModel.findOne({ user_id: userId.toString() });
+
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
+    }
+
+    const result = await this.cartItemsModel.aggregate([
+      { $match: { cart_id: cart._id } },
+      {
+        $lookup: {
+          from: 'products',
+          localField: 'product_id',
+          foreignField: '_id',
+          as: 'product',
+        },
+      },
+      { $unwind: '$product' },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: { $multiply: ['$quantity', '$product.price'] } },
+        },
+      },
+    ]);
+    console.log(result);
+
+    return result[0]?.total || 0;
+  }
+
+  async clearCart(userId: string) {
+    const cart = await this.cartModel.findOne({ user_id: userId });
+
+    if (!cart) {
+      throw new NotFoundException('Cart not found');
+    }
+
+    await this.cartItemsModel.deleteMany({
+      cart_id: cart._id.toString(),
+    });
+
+    await this.cartModel.findByIdAndUpdate(cart._id, {
+      cart_items_ids: [],
+    });
+
+    return { message: 'Cart cleared successfully' };
   }
 }

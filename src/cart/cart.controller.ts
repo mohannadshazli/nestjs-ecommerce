@@ -41,43 +41,23 @@ export class CartController {
   }
 
   @ApiBody({
-    description: 'increase cart item quantity',
-    examples: {
-      quantity: {
-        value: {
-          quantity: 2,
-        },
-      },
-    },
+    description: 'increase cart item quantity by 1',
   })
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
   @Patch('/item/:id/increase-quantity')
-  increaseQuantity(
-    @Param('id', ParseObjectIdPipe) id: string,
-    @Body('quantity') quantity: number,
-  ) {
-    return this.cartService.increaseQuantity(id, quantity);
+  increaseQuantity(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.cartService.increaseQuantity(id);
   }
 
   @ApiBody({
-    description: 'decrease cart item quantity',
-    examples: {
-      quantity: {
-        value: {
-          quantity: 2,
-        },
-      },
-    },
+    description: 'decrease cart item quantity by 1',
   })
   @ApiBearerAuth()
   @UseGuards(AuthGuard)
   @Patch('/item/:id/decrease-quantity')
-  decreaseQuantity(
-    @Param('id', ParseObjectIdPipe) id: string,
-    @Body('quantity') quantity: number,
-  ) {
-    return this.cartService.decreaseQuantity(id, quantity);
+  decreaseQuantity(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.cartService.decreaseQuantity(id);
   }
 
   @ApiBearerAuth()
@@ -85,5 +65,19 @@ export class CartController {
   @Delete('/item/:id')
   remove(@Param('id', ParseObjectIdPipe) id: string) {
     return this.cartService.remove(id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @Get('/total-price')
+  getTotalPrice(@Req() req: any) {
+    return this.cartService.getTotalPrice(req.user.id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthGuard)
+  @Delete('/clear')
+  clearCart(@Req() req: any) {
+    return this.cartService.clearCart(req.user.id);
   }
 }
